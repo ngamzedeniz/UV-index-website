@@ -119,47 +119,44 @@
 </body>
 </html>
 
-
-
-
 <hr style="margin:20px 0">
 
-<h3>UV Index Categories</h3>
-<table id="uv-table" style="width:100%; border-collapse: collapse; text-align:center;">
+<h3 style="text-align:center">UV Index Categories</h3>
+<table id="uv-table" style="width:100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align:center; margin-bottom:30px;">
   <thead>
-    <tr>
-      <th style="border:1px solid #ddd; padding:8px;">UV Index</th>
-      <th style="border:1px solid #ddd; padding:8px;">Category</th>
-      <th style="border:1px solid #ddd; padding:8px;">Color</th>
-      <th style="border:1px solid #ddd; padding:8px;">Protection Advice</th>
+    <tr style="background:#0b74de; color:white;">
+      <th style="padding:10px;">UV Index</th>
+      <th style="padding:10px;">Category</th>
+      <th style="padding:10px;">Color</th>
+      <th style="padding:10px;">Protection Advice</th>
     </tr>
   </thead>
   <tbody>
-    <tr data-min="0" data-max="2" style="background:#a8e05f">
+    <tr data-min="0" data-max="2" style="background:#a8e05f; transition:0.3s;">
       <td>0-2</td>
       <td>Low</td>
       <td>Green</td>
       <td>Normal protection is sufficient</td>
     </tr>
-    <tr data-min="3" data-max="5" style="background:#fdd835">
+    <tr data-min="3" data-max="5" style="background:#fdd835; transition:0.3s;">
       <td>3-5</td>
       <td>Moderate</td>
       <td>Yellow</td>
       <td>Wear sunglasses and a hat</td>
     </tr>
-    <tr data-min="6" data-max="7" style="background:#f97306">
+    <tr data-min="6" data-max="7" style="background:#f97306; transition:0.3s;">
       <td>6-7</td>
       <td>High</td>
       <td>Orange</td>
       <td>Avoid sun, use sunscreen</td>
     </tr>
-    <tr data-min="8" data-max="10" style="background:#ef4444">
+    <tr data-min="8" data-max="10" style="background:#ef4444; transition:0.3s;">
       <td>8-10</td>
       <td>Very High</td>
       <td>Red</td>
       <td>Minimize time outdoors, wear protective clothing</td>
     </tr>
-    <tr data-min="11" data-max="99" style="background:#9b30ff; color:white">
+    <tr data-min="11" data-max="99" style="background:#9b30ff; color:white; transition:0.3s;">
       <td>11+</td>
       <td>Extreme</td>
       <td>Purple</td>
@@ -167,4 +164,39 @@
     </tr>
   </tbody>
 </table>
+
+<style>
+  #uv-table tbody tr:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  #uv-table tbody tr.highlight {
+    outline: 3px solid black;
+    font-weight: bold;
+    transition: 0.3s;
+  }
+</style>
+
+<script>
+  function highlightUVRow(uvVal) {
+    const rows = document.querySelectorAll('#uv-table tbody tr');
+    rows.forEach(row => {
+      row.classList.remove('highlight');
+    });
+
+    rows.forEach(row => {
+      const min = parseFloat(row.dataset.min);
+      const max = parseFloat(row.dataset.max);
+      if (uvVal >= min && uvVal <= max) {
+        row.classList.add('highlight');
+      }
+    });
+  }
+
+  // Örnek kullanım: UV değeri 7 ise
+  // highlightUVRow(7);
+</script>
+
+
+
 
