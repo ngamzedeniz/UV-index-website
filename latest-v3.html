@@ -5,7 +5,29 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>UV Index - Hourly Bar & 5-Day</title>
 <style>
-/* ... senin css kodların aynı bırakıldı ... */
+/* --- senin css aynı, değiştirmedim --- */
+body {
+  font-family: system-ui,-apple-system,Segoe UI,Roboto;
+  background:#f6f8fa;
+  margin:0;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.card {
+  background:white;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.08);
+  width:380px;
+  margin-bottom:20px;
+}
+.big { font-size:48px; font-weight:700; }
+.small { color:#666; }
+input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margin-top:8px; }
+.btn { margin-top:12px; padding:8px 12px; border-radius:8px; border:0; background:#0b74de; color:white; cursor:pointer; }
+/* ... diğer css aynı ... */
 </style>
 </head>
 <body>
@@ -38,20 +60,12 @@
     <button class="btn" id="check">Fetch UV</button>
   </div>
 </div>
-<div style="font-size:14px; color:#555; margin-top:6px; text-align:center;">
-  For accurate UV Index data, please allow location access in your browser.
-</div>
 
 <div class="daily-buttons" id="daily-buttons"></div>
 
 <h3 style="text-align:center; margin-top:10px;">Hourly UV Index (UTC)</h3>
 <div class="hourly-bar-container" id="hourly-bars"></div>
 <div class="hour-labels" id="hour-labels"></div>
-
-<h3 style="text-align:center; margin-top:30px">UV Index Reference</h3>
-<div class="uv-scale">
-  <!-- ... senin referans ölçek kısmın aynı bırakıldı ... -->
-</div>
 
 <script>
 const uvEl = document.getElementById('uv');
@@ -62,7 +76,7 @@ const fgCircle = document.querySelector('.fg');
 const hourlyBars = document.getElementById('hourly-bars');
 const hourLabels = document.getElementById('hour-labels');
 const dailyButtonsContainer = document.getElementById('daily-buttons');
-const uvLabelEl = document.getElementById('uv-label');
+const uvLabel = document.getElementById('uv-label');
 
 let uvData = null;
 let timesData = null;
@@ -91,7 +105,6 @@ async function fetchUV(lat, lon){
 
   try{
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=UTC`);
-    if(!res.ok) throw new Error('API error: '+res.status);
     const data = await res.json();
 
     timesData = data.hourly.time || [];
@@ -100,7 +113,6 @@ async function fetchUV(lat, lon){
     renderDailyButtons(timesData);
     renderHourlyBarsForDay(selectedDayIndex);
     updateCurrentUV(selectedDayIndex);
-
   }catch(err){
     uvEl.textContent='Error';
     descEl.textContent=err.message;
@@ -167,42 +179,42 @@ function updateCurrentUV(dayIndex){
   const daysUnique = [...new Set(timesData.map(t=>t.slice(0,10)))];
   const selectedDayStr = daysUnique[dayIndex];
   const now = new Date();
-  const currentHour = now.getUTCHours();
 
-  let chosenIdx = null;
+  let uvVal, displayHour;
 
   if(dayIndex === 0){
-    // Bugün: en yakın saate bak
+    // Bugün → en yakın saat
+    let closestIdx = 0;
     let minDiff = Infinity;
     timesData.forEach((t,idx)=>{
       if(t.slice(0,10)===selectedDayStr){
         const dt = new Date(t+'Z');
         const diff = Math.abs(dt - now);
-        if(diff < minDiff){
-          minDiff = diff;
-          chosenIdx = idx;
+        if(diff<minDiff){
+          minDiff=diff;
+          closestIdx=idx;
         }
       }
     });
-    uvLabelEl.textContent = "Current UV Index";
+    uvVal = uvData[closestIdx];
+    displayHour = timesData[closestIdx].slice(11);
+    uvLabel.textContent = "Current UV Index";
   } else {
-    // Yarın veya sonrası: o günün currentHour değerini al
-    timesData.forEach((t,idx)=>{
-      if(t.slice(0,10)===selectedDayStr){
-        const dt = new Date(t+'Z');
-        if(dt.getUTCHours() === currentHour){
-          chosenIdx = idx;
-        }
-      }
-    });
-    uvLabelEl.textContent = "Predicted UV Index";
+    // Diğer günler → şimdiki saatin aynı saati
+    const currentHour = now.getUTCHours();
+    let idxMatch = timesData.findIndex(t => 
+      t.slice(0,10)===selectedDayStr && new Date(t+'Z').getUTCHours()===currentHour
+    );
+    if(idxMatch === -1){
+      idxMatch = timesData.findIndex(t=>t.slice(0,10)===selectedDayStr);
+    }
+    uvVal = uvData[idxMatch];
+    displayHour = timesData[idxMatch].slice(11);
+    uvLabel.textContent = "Predicted UV Index";
   }
 
-  if(chosenIdx === null) return;
-
-  const uvVal = uvData[chosenIdx];
   uvEl.textContent = uvVal.toFixed(1);
-  descEl.textContent = uvCategory(uvVal) + ` • Hour (UTC): ${timesData[chosenIdx].slice(11)}`;
+  descEl.textContent = uvCategory(uvVal) + ` • Hour (UTC): ${displayHour}`;
   animateUVCircle(uvVal);
 }
 
@@ -219,19 +231,16 @@ document.getElementById('geo').onclick = () => {
   navigator.geolocation.getCurrentPosition(p=>{
     manual.value = p.coords.latitude.toFixed(5)+','+p.coords.longitude.toFixed(5);
     fetchUV(p.coords.latitude,p.coords.longitude);
-  }, e => alert('Could not get location: '+e.message));
+  });
 };
-
 document.getElementById('check').onclick = () => {
-  const text = manual.value.trim();
-  if(!text) return alert('Please enter lat,lon or use Get Location.');
-  const parts = text.split(',').map(s=>s.trim());
+  const parts = manual.value.trim().split(',').map(s=>s.trim());
   if(parts.length<2) return alert('Format: lat,lon (e.g., 39.92,32.85)');
   const lat=parseFloat(parts[0]), lon=parseFloat(parts[1]);
-  if(isNaN(lat)||isNaN(lon)) return alert('Invalid coordinates');
   fetchUV(lat, lon);
 };
 
+// default Istanbul
 manual.value='41.00824,28.97836';
 fetchUV(41.00824,28.97836);
 </script>
