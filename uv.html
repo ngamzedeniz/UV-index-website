@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>UV Index - Basit</title>
+  <title>UV Index - Simple</title>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f6f8fa;margin:0}
     .card{background:white;padding:20px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.08);width:360px}
@@ -19,25 +19,25 @@
       <div>
         <div class="small">UV Index</div>
         <div id="uv" class="big">--</div>
-        <div id="desc" class="small">Bilgi bekleniyor</div>
+        <div id="desc" class="small">Waiting for data</div>
       </div>
       <div style="text-align:right">
-        <div class="small">Konum:</div>
+        <div class="small">Location:</div>
         <div id="coords" class="small">—</div>
       </div>
     </div>
 
     <hr style="margin:14px 0">
 
-    <div class="small">El ile koordinat / şehir gir (lat,lon) ya da konum izni ver:</div>
-    <input id="manual" placeholder="örn: 39.92,32.85 veya boş bırakıp 'Konum Al' tıkla" />
+    <div class="small">Enter coordinates / city manually (lat,lon) or allow location:</div>
+    <input id="manual" placeholder="e.g., 39.92,32.85 or leave empty and click 'Get Location'" />
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn" id="geo">Konum Al</button>
-      <button class="btn" id="check">Getir</button>
+      <button class="btn" id="geo">Get Location</button>
+      <button class="btn" id="check">Fetch</button>
     </div>
 
     <div id="note" class="small" style="margin-top:10px;color:#444">
-      Veriler Open-Meteo’dan geliyor (ücretsiz, API key yok). Güncellemek için tekrar "Getir" tıkla.
+      Data comes from Open-Meteo (free, no API key). Click "Fetch" again to update.
     </div>
   </div>
 
@@ -48,36 +48,33 @@
     const manual = document.getElementById('manual');
 
     document.getElementById('geo').onclick = async () => {
-      if (!navigator.geolocation) return alert('Tarayıcı konum API desteklemiyor');
+      if (!navigator.geolocation) return alert('Browser does not support geolocation API');
       navigator.geolocation.getCurrentPosition(p=>{
         manual.value = p.coords.latitude.toFixed(5)+','+p.coords.longitude.toFixed(5);
-      }, e => alert('Konum alınamadı: '+e.message));
+      }, e => alert('Could not get location: '+e.message));
     };
 
     function uvCategory(val){
-      if (val === null || val === undefined) return 'Bilinmiyor';
-      if (val < 3) return 'Düşük';
-      if (val < 6) return 'Orta';
-      if (val < 8) return 'Yüksek';
-      if (val < 11) return 'Çok Yüksek';
-      return 'Aşırı';
+      if (val === null || val === undefined) return 'Unknown';
+      if (val < 3) return 'Low';
+      if (val < 6) return 'Moderate';
+      if (val < 8) return 'High';
+      if (val < 11) return 'Very High';
+      return 'Extreme';
     }
 
     async function fetchUV(lat, lon){
       uvEl.textContent = '...';
-      descEl.textContent = 'Veri çekiliyor';
+      descEl.textContent = 'Fetching data';
       coordsEl.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 
-      // Open-Meteo: timezone=UTC ile saatleri UTC formatında alıyoruz
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index,uv_index_clear_sky&timezone=UTC`;
       try{
         const res = await fetch(url);
-        if (!res.ok) throw new Error('API hata: '+res.status);
+        if (!res.ok) throw new Error('API error: '+res.status);
         const data = await res.json();
 
-        // saat dizisinden şu anki UTC saatine en yakın indeksi bul
         const now = new Date();
-        // round to hour in UTC and format like "YYYY-MM-DDTHH:00"
         const y = now.getUTCFullYear();
         const m = String(now.getUTCMonth()+1).padStart(2,'0');
         const d = String(now.getUTCDate()).padStart(2,'0');
@@ -87,12 +84,10 @@
         const times = data.hourly.time || [];
         const uvs = data.hourly.uv_index || [];
         let i = times.indexOf(target);
-        // eğer hour dizisinde bulunmadıysa 1. yakını dene
         if (i === -1){
-          // basit: en yakın indeksi bul
           let best = 0, mindiff = Infinity;
           for (let j=0;j<times.length;j++){
-            const t = new Date(times[j] + 'Z'); // UTC
+            const t = new Date(times[j] + 'Z');
             const diff = Math.abs(t - now);
             if (diff < mindiff){ mindiff = diff; best = j; }
           }
@@ -101,27 +96,75 @@
 
         const uvVal = (uvs[i] === undefined) ? null : uvs[i];
         uvEl.textContent = (uvVal === null) ? '—' : uvVal.toFixed(1);
-        descEl.textContent = uvCategory(uvVal) + (uvVal !== null ? ` • Saat (UTC): ${times[i].slice(11)}` : '');
+        descEl.textContent = uvCategory(uvVal) + (uvVal !== null ? ` • Hour (UTC): ${times[i].slice(11)}` : '');
       }catch(err){
-        uvEl.textContent = 'Hata';
+        uvEl.textContent = 'Error';
         descEl.textContent = err.message;
       }
     }
 
     document.getElementById('check').onclick = () => {
       const text = manual.value.trim();
-      if (!text) return alert('Lütfen lat,lon gir veya Konum Al ile doldur.');
+      if (!text) return alert('Please enter lat,lon or use Get Location.');
       const parts = text.split(',').map(s=>s.trim());
-      if (parts.length < 2) return alert('Format: lat,lon (örn: 39.92,32.85)');
+      if (parts.length < 2) return alert('Format: lat,lon (e.g., 39.92,32.85)');
       const lat = parseFloat(parts[0]), lon = parseFloat(parts[1]);
-      if (isNaN(lat) || isNaN(lon)) return alert('Geçersiz koordinat');
+      if (isNaN(lat) || isNaN(lon)) return alert('Invalid coordinates');
       fetchUV(lat, lon);
     };
 
-    // örnek: İstanbul koordinatlarını yükle (hızlı başlangıç)
     manual.value = '41.00824,28.97836';
-    // otomatik başlangıçta getir
     fetchUV(41.00824,28.97836);
   </script>
 </body>
 </html>
+
+
+
+
+<hr style="margin:20px 0">
+
+<h3>UV Index Categories</h3>
+<table id="uv-table" style="width:100%; border-collapse: collapse; text-align:center;">
+  <thead>
+    <tr>
+      <th style="border:1px solid #ddd; padding:8px;">UV Index</th>
+      <th style="border:1px solid #ddd; padding:8px;">Category</th>
+      <th style="border:1px solid #ddd; padding:8px;">Color</th>
+      <th style="border:1px solid #ddd; padding:8px;">Protection Advice</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr data-min="0" data-max="2" style="background:#a8e05f">
+      <td>0-2</td>
+      <td>Low</td>
+      <td>Green</td>
+      <td>Normal protection is sufficient</td>
+    </tr>
+    <tr data-min="3" data-max="5" style="background:#fdd835">
+      <td>3-5</td>
+      <td>Moderate</td>
+      <td>Yellow</td>
+      <td>Wear sunglasses and a hat</td>
+    </tr>
+    <tr data-min="6" data-max="7" style="background:#f97306">
+      <td>6-7</td>
+      <td>High</td>
+      <td>Orange</td>
+      <td>Avoid sun, use sunscreen</td>
+    </tr>
+    <tr data-min="8" data-max="10" style="background:#ef4444">
+      <td>8-10</td>
+      <td>Very High</td>
+      <td>Red</td>
+      <td>Minimize time outdoors, wear protective clothing</td>
+    </tr>
+    <tr data-min="11" data-max="99" style="background:#9b30ff; color:white">
+      <td>11+</td>
+      <td>Extreme</td>
+      <td>Purple</td>
+      <td>Stay in the shade if possible, maximum protection</td>
+    </tr>
+  </tbody>
+</table>
+
