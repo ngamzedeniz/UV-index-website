@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>UV Index - Hourly Bar & 5-Day</title>
+<style>
+body {
+  font-family: system-ui,-apple-system,Segoe UI,Roboto;
+  background:#f6f8fa;
+  margin:0;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.card {
+  background:white;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.08);
+  width:380px;
+  margin-bottom:20px;
+}
+
+.big { font-size:48px; font-weight:700; }
+.small { color:#666; }
+
+input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margin-top:8px; }
+.btn { margin-top:12px; padding:8px 12px; border-radius:8px; border:0; background:#0b74de; color:white; cursor:pointer; }
+
+.uv-circle { position: relative; width:120px; height:120px; border-radius:50%; margin: 20px auto; }
+.uv-circle svg { transform: rotate(-90deg); }
+.uv-circle circle.bg { fill:none; stroke:#ddd; stroke-width:12; }
+.uv-circle circle.fg { fill:none; stroke-width:12; stroke-linecap:round; stroke-dasharray: 339.292; stroke-dashoffset: 339.292; transition: stroke-dashoffset 1s ease, stroke 1s ease; }
+.uv-value { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:32px; font-weight:bold; }
+
+.hourly-bar-container {
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  margin-top:20px;
+  height:120px;
+  position:relative;
+}
+
+.hourly-bar {
+  width:3%;
+  border-radius:4px 4px 0 0;
+  text-align:center;
+  font-size:10px;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+}
+
+.hourly-bar span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-weight:bold;
+  margin-bottom:2px;
+}
+
+/* Saatleri her barın altına hizalama */
+.hour-labels {
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  margin-top:4px;
+}
+.hour-labels div {
+  font-size:10px;
+  text-align:center;
+  width:3%;
+}
+
+/* Modern UV scale circles */
+.uv-scale {
+  display:flex;
+  justify-content:space-between;
+  width:100%;
+  max-width:380px;
+  margin-top:20px;
+}
+.uv-circle-scale {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+}
+.uv-circle-scale .circle {
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:12px;
+  font-weight:bold;
+  color:white;
+}
+.uv-circle-scale .label {
+  font-size:10px;
+  text-align:center;
+  max-width:60px;
+}
+
+/* UV colors */
+.uv-low { background:#a8e05f; color:black; }
+.uv-moderate { background:#fdd835; color:black; }
+.uv-high { background:#f97306; }
+.uv-veryhigh { background:#ef4444; }
+.uv-extreme { background:#9b30ff; }
+
+/* 5-day buttons */
+.daily-buttons { display:flex; justify-content:space-between; margin:10px 0; }
+.daily-buttons button { flex:1; margin:0 2px; padding:6px; border-radius:6px; border:none; cursor:pointer; background:#ddd; font-size:12px; }
+.daily-buttons button.active { background:#0b74de; color:white; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div class="small">Current UV Index</div>
+      <div class="uv-circle">
+        <svg width="120" height="120">
+          <circle class="bg" r="54" cx="60" cy="60"></circle>
+          <circle class="fg" r="54" cx="60" cy="60"></circle>
+        </svg>
+        <div class="uv-value" id="uv">--</div>
+      </div>
+      <div id="desc" class="small">Waiting for data</div>
+    </div>
+    <div style="text-align:right">
+      <div class="small">Location:</div>
+      <div id="coords" class="small">—</div>
+    </div>
+  </div>
+
+  <hr style="margin:14px 0">
+
+  <div class="small">Enter coordinates (lat,lon) or use location:</div>
+  <input id="manual" placeholder="e.g., 39.92,32.85 or leave empty" />
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn" id="geo">Use My Location</button>
+    <button class="btn" id="check">Fetch UV</button>
+  </div>
+</div>
+<div style="font-size:14px; color:#555; margin-top:6px; text-align:center;">
+  For accurate UV Index data, please allow location access in your browser.
+</div>
+
+<div class="daily-buttons" id="daily-buttons"></div>
+
+<h3 style="text-align:center; margin-top:10px;">Hourly UV Index (UTC)</h3>
+<div class="hourly-bar-container" id="hourly-bars"></div>
+<div class="hour-labels" id="hour-labels"></div>
+
+<h3 style="text-align:center; margin-top:30px">UV Index Reference</h3>
+<div class="uv-scale">
+  <div class="uv-circle-scale">
+    <div class="circle uv-low">0-2</div>
+    <div class="label">Low<br>Normal protection</div>
+  </div>
+  <div class="uv-circle-scale">
+    <div class="circle uv-moderate">3-5</div>
+    <div class="label">Moderate<br>Sunglasses & hat</div>
+  </div>
+  <div class="uv-circle-scale">
+    <div class="circle uv-high">6-7</div>
+    <div class="label">High<br>Sunscreen & avoid sun</div>
+  </div>
+  <div class="uv-circle-scale">
+    <div class="circle uv-veryhigh">8-10</div>
+    <div class="label">Very High<br>Protective clothing</div>
+  </div>
+  <div class="uv-circle-scale">
+    <div class="circle uv-extreme">11+</div>
+    <div class="label">Extreme<br>Maximum protection</div>
+  </div>
+</div>
+
+<script>
+const uvEl = document.getElementById('uv');
+const descEl = document.getElementById('desc');
+const coordsEl = document.getElementById('coords');
+const manual = document.getElementById('manual');
+const fgCircle = document.querySelector('.fg');
+const hourlyBars = document.getElementById('hourly-bars');
+const hourLabels = document.getElementById('hour-labels');
+const dailyButtonsContainer = document.getElementById('daily-buttons');
+
+let uvData = null;
+let timesData = null;
+let selectedDayIndex = 0;
+
+function uvCategory(val){
+  if(val===null||val===undefined) return 'Unknown';
+  if(val<3) return 'Low';
+  if(val<6) return 'Moderate';
+  if(val<8) return 'High';
+  if(val<11) return 'Very High';
+  return 'Extreme';
+}
+function uvColor(val){
+  if(val<3) return '#a8e05f';
+  if(val<6) return '#fdd835';
+  if(val<8) return '#f97306';
+  if(val<11) return '#ef4444';
+  return '#9b30ff';
+}
+
+async function fetchUV(lat, lon){
+  uvEl.textContent='...';
+  descEl.textContent='Fetching data';
+  coordsEl.textContent=`${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+  try{
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=UTC`);
+    if(!res.ok) throw new Error('API error: '+res.status);
+    const data = await res.json();
+
+    timesData = data.hourly.time || [];
+    uvData = data.hourly.uv_index || [];
+
+    renderDailyButtons(timesData);
+    renderHourlyBarsForDay(selectedDayIndex);
+    updateCurrentUV(selectedDayIndex);
+
+  }catch(err){
+    uvEl.textContent='Error';
+    descEl.textContent=err.message;
+  }
+}
+
+function renderDailyButtons(times){
+  dailyButtonsContainer.innerHTML = '';
+  let days = [];
+  for(let t of times){
+    const d = t.slice(0,10);
+    if(!days.includes(d)) days.push(d);
+    if(days.length >=5) break;
+  }
+
+  days.forEach((d,i)=>{
+    const dt = new Date(d);
+    const options = {weekday:'short', day:'numeric', month:'short'};
+    const label = dt.toLocaleDateString('en-US',options);
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    if(i===selectedDayIndex) btn.classList.add('active');
+    btn.onclick = ()=>{
+      selectedDayIndex=i;
+      document.querySelectorAll('.daily-buttons button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderHourlyBarsForDay(i);
+      updateCurrentUV(i);
+    };
+    dailyButtonsContainer.appendChild(btn);
+  });
+}
+
+function renderHourlyBarsForDay(dayIndex){
+  hourlyBars.innerHTML='';
+  hourLabels.innerHTML='';
+  if(!uvData || !timesData) return;
+
+  const daysUnique = [...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDayStr = daysUnique[dayIndex];
+
+  const dayTimes = timesData.map((t,idx)=>({t: new Date(t+'Z'), uv: uvData[idx]}))
+    .filter(x => x.t.toISOString().slice(0,10) === selectedDayStr);
+
+  for(let j=0;j<dayTimes.length;j++){
+    const tObj = dayTimes[j];
+    const uv = tObj.uv;
+    const color = uvColor(uv);
+    const heightPercent = Math.min((uv/11)*100,100);
+    const bar = document.createElement('div');
+    bar.className='hourly-bar';
+    bar.style.height='100%';
+    bar.innerHTML=`<span>${uv}</span><div style="background:${color}; height:${heightPercent}%; width:100%; border-radius:4px 4px 0 0"></div>`;
+    hourlyBars.appendChild(bar);
+
+    const label = document.createElement('div');
+    label.textContent = tObj.t.getUTCHours();
+    hourLabels.appendChild(label);
+  }
+}
+
+// ----------- Güncellenmiş kısım -----------
+function updateCurrentUV(dayIndex){
+  if(!uvData || !timesData) return;
+  const daysUnique = [...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDayStr = daysUnique[dayIndex];
+  const now = new Date();
+
+  let closestIdx = 0;
+  let minDiff = Infinity;
+  timesData.forEach((t,idx)=>{
+    if(t.slice(0,10)===selectedDayStr){
+      const dt = new Date(t+'Z');
+
+      const refTime = (dayIndex===0) 
+        ? now 
+        : new Date(selectedDayStr+'T'+now.getUTCHours().toString().padStart(2,'0')+':00:00Z');
+      const diff = Math.abs(dt - refTime);
+      
+      if(diff<minDiff){
+        minDiff=diff;
+        closestIdx=idx;
+      }
+    }
+  });
+
+  const uvVal = uvData[closestIdx];
+  uvEl.textContent = uvVal.toFixed(1);
+
+  // Başlığı güncelle
+  const headerEl = document.querySelector('.small');
+  if(dayIndex===0){
+    headerEl.textContent = 'Current UV Index';
+  } else {
+    headerEl.textContent = 'Predicted UV Index';
+  }
+
+  descEl.textContent = uvCategory(uvVal) + ` • Hour (UTC): ${timesData[closestIdx].slice(11)}`;
+  animateUVCircle(uvVal);
+}
+// ------------------------------------------
+
+function animateUVCircle(uvVal){
+  const maxVal = 11;
+  const percent = Math.min(uvVal/maxVal,1);
+  const dashOffset = 339.292*(1-percent);
+  fgCircle.style.strokeDashoffset=dashOffset;
+  fgCircle.style.stroke=uvColor(uvVal);
+}
+
+document.getElementById('geo').onclick = () => {
+  if(!navigator.geolocation) return alert('Browser does not support geolocation API');
+  navigator.geolocation.getCurrentPosition(p=>{
+    manual.value = p.coords.latitude.toFixed(5)+','+p.coords.longitude.toFixed(5);
+    fetchUV(p.coords.latitude,p.coords.longitude);
+  }, e => alert('Could not get location: '+e.message));
+};
+
+document.getElementById('check').onclick = () => {
+  const text = manual.value.trim();
+  if(!text) return alert('Please enter lat,lon or use Get Location.');
+  const parts = text.split(',').map(s=>s.trim());
+  if(parts.length<2) return alert('Format: lat,lon (e.g., 39.92,32.85)');
+  const lat=parseFloat(parts[0]), lon=parseFloat(parts[1]);
+  if(isNaN(lat)||isNaN(lon)) return alert('Invalid coordinates');
+  fetchUV(lat, lon);
+};
+
+manual.value='41.00824,28.97836';
+fetchUV(41.00824,28.97836);
+</script>
+</body>
+</html>
