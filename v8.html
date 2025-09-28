@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UV Index - Hourly Animated Bars</title>
+<title>UV Index - Hourly Bar & Animated</title>
 <style>
 body {
   font-family: system-ui,-apple-system,Segoe UI,Roboto;
@@ -42,7 +42,7 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   justify-content:space-between;
   align-items:flex-end;
   margin-top:20px;
-  height:140px;
+  height:120px;
 }
 
 .hourly-bar {
@@ -52,50 +52,29 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   font-size:10px;
   position:relative;
   display:flex;
-  flex-direction:column-reverse;
-  justify-content:flex-start;
-  cursor:pointer;
-  transition: transform 0.2s;
+  flex-direction:column;
+  justify-content:flex-end;
 }
 
-.hourly-bar:hover {
-  transform: scale(1.2);
-  z-index:2;
-}
-
-.bar-fill {
-  width:100%;
-  border-radius:4px 4px 0 0;
-  transition: height 1s ease;
-}
-
-.bar-label {
-  font-weight:bold;
-  font-size:10px;
-  margin-bottom:2px;
+.hourly-bar span {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
+  font-weight:bold;
+  margin-bottom:2px;
 }
-
-.tooltip {
-  position:absolute;
-  background:rgba(0,0,0,0.75);
-  color:white;
-  padding:4px 6px;
-  border-radius:4px;
-  font-size:10px;
-  white-space:nowrap;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity 0.2s;
-}
-
 .hour-labels {
   display:flex;
   justify-content:space-between;
   font-size:10px;
   margin-top:4px;
 }
+
+/* UV Reference Table */
+.uv-table-container table { width:100%; border-collapse:collapse; font-family:Arial, sans-serif; box-shadow:0 4px 12px rgba(0,0,0,0.08); border-radius:12px; overflow:hidden; }
+.uv-table-container th, .uv-table-container td { padding:10px; text-align:center; }
+.uv-table-container thead { background:#0b74de; color:white; }
+.uv-table-container tbody tr { transition: transform 0.2s, box-shadow 0.2s; cursor:default; }
+.uv-table-container tbody tr:hover { transform: scale(1.02); box-shadow:0 4px 12px rgba(0,0,0,0.15); }
 </style>
 </head>
 <body>
@@ -132,6 +111,52 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
 <h3 style="text-align:center">Hourly UV Index (UTC)</h3>
 <div class="hourly-bar-container" id="hourly-bars"></div>
 <div class="hour-labels" id="hour-labels"></div>
+
+<h3 style="text-align:center; margin-top:30px">UV Index Reference</h3>
+<div class="uv-table-container" style="width:100%; max-width:380px; margin-bottom:30px;">
+  <table>
+    <thead>
+      <tr>
+        <th>UV Index</th>
+        <th>Category</th>
+        <th>Color</th>
+        <th>Protection Advice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#a8e05f;">
+        <td>0-2</td>
+        <td>Low</td>
+        <td style="color:black;">Green</td>
+        <td>Normal protection is sufficient</td>
+      </tr>
+      <tr style="background:#fdd835;">
+        <td>3-5</td>
+        <td>Moderate</td>
+        <td style="color:black;">Yellow</td>
+        <td>Wear sunglasses and a hat</td>
+      </tr>
+      <tr style="background:#f97306; color:white;">
+        <td>6-7</td>
+        <td>High</td>
+        <td>Orange</td>
+        <td>Avoid sun exposure, use sunscreen</td>
+      </tr>
+      <tr style="background:#ef4444; color:white;">
+        <td>8-10</td>
+        <td>Very High</td>
+        <td>Red</td>
+        <td>Minimize time outdoors, wear protective clothing</td>
+      </tr>
+      <tr style="background:#9b30ff; color:white;">
+        <td>11+</td>
+        <td>Extreme</td>
+        <td>Purple</td>
+        <td>Stay in the shade, maximum protection needed</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
 <script>
 const uvEl = document.getElementById('uv');
@@ -209,21 +234,10 @@ function renderHourlyBars(times, uvs){
     const uv = uvs[j] !== undefined ? uvs[j] : 0;
     const color = uvColor(uv);
     const heightPercent = Math.min((uv/11)*100,100);
-
     const bar = document.createElement('div');
     bar.className='hourly-bar';
-    bar.innerHTML=`
-      <div class="bar-fill" style="background:${color}; height:0;"></div>
-      <div class="bar-label">${uv}</div>
-      <div class="tooltip">${uvCategory(uv)}<br>${t ? t.getUTCHours()+':00' : j+':00'}</div>
-    `;
-
-    const fillDiv = bar.querySelector('.bar-fill');
-    setTimeout(()=>{ fillDiv.style.height = heightPercent+'%'; }, 100);
-
-    bar.onmouseenter = e => { bar.querySelector('.tooltip').style.opacity=1; };
-    bar.onmouseleave = e => { bar.querySelector('.tooltip').style.opacity=0; };
-
+    bar.style.height='100%';
+    bar.innerHTML=`<span>${uv}</span><div style="background:${color}; height:${heightPercent}%; width:100%; border-radius:4px 4px 0 0"></div>`;
     hourlyBars.appendChild(bar);
 
     const hourText = t ? t.getUTCHours() : j;
