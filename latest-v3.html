@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>UV Index Forecast</title>
+  <style>
+    body {
+      font-family: system-ui,-apple-system,Segoe UI,Roboto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background: #f9f9f9;
+      color: #333;
+    }
+    h2 { margin-bottom: 4px; }
+    .small { font-size:14px; color:#666; margin-bottom:10px; }
+    #uv-value { font-size:64px; font-weight:bold; margin:10px 0; }
+    #uv-desc { font-size:18px; margin-bottom:20px; }
+    .hourly-bar-container {
+      display:flex;
+      align-items:flex-end;
+      gap:4px;
+      height:200px;
+      margin:20px 0 4px 0;
+      width:100%;
+      max-width:800px;
+    }
+    .hour-bar {
+      flex:1;
+      background:linear-gradient(to top,#4facfe,#00f2fe);
+      border-radius:4px 4px 0 0;
+      position:relative;
+    }
+    .hour-labels {
+      display:flex;
+      justify-content:space-between;
+      max-width:800px;
+      width:100%;
+      font-size:12px;
+      color:#555;
+    }
+    .day-buttons {
+      display:flex;
+      gap:8px;
+      margin:12px 0;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .day-buttons button {
+      padding:6px 12px;
+      border:none;
+      border-radius:6px;
+      background:#eee;
+      cursor:pointer;
+    }
+    .day-buttons button.active {
+      background:#4facfe;
+      color:#fff;
+      font-weight:bold;
+    }
+    .uv-circle {
+      width:120px; height:120px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-size:32px;
+      font-weight:bold;
+      margin:10px auto;
+      background:conic-gradient(#4facfe 0deg,#00f2fe 0deg,#ddd 0deg 360deg);
+      transition:background 0.5s ease;
+    }
+    .sunrise, .sunset {
+      position:absolute;
+      top:-24px;
+      font-size:18px;
+    }
+    .sunrise { left:0; }
+    .sunset { right:0; }
+    .sunline {
+      position:absolute;
+      top:-14px;
+      left:0; right:0;
+      height:2px;
+      background:#f39c12;
+    }
+    .btn {
+      background:#4facfe;
+      color:white;
+      border:none;
+      border-radius:6px;
+      padding:6px 12px;
+      cursor:pointer;
+    }
+    input { padding:6px; border:1px solid #ccc; border-radius:6px; width:200px; }
+  </style>
+</head>
+<body>
+  <h2>UV Index Forecast</h2>
+  <div class="small">Enter coordinates (lat,lon) or use location:</div>
+  <input id="manual" placeholder="e.g., 39.92,32.85 or leave empty" />
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn" id="geo">Use My Location</button>
+    <button class="btn" id="check">Fetch UV</button>
+  </div>
+  <div style="font-size:12px; color:#555; margin-top:6px; text-align:center;">
+    For accurate UV Index data, please allow location access in your browser.
+  </div>
+
+  <div class="uv-circle" id="uv-circle">
+    <span id="uv-value">--</span>
+  </div>
+  <div id="uv-desc">--</div>
+
+  <div class="day-buttons" id="day-buttons"></div>
+
+  <h3 style="text-align:center; margin-top:16px;">Hourly UV Index (UTC)</h3>
+  <div class="hourly-bar-container" id="hourly-bars"></div>
+  <div class="hour-labels" id="hour-labels"></div>
+
+<script>
+let uvData=[], timesData=[];
+let sunriseData=[], sunsetData=[];
+let currentDayIndex=0;
+
+const uvEl=document.getElementById("uv-value");
+const descEl=document.getElementById("uv-desc");
+const uvCircle=document.getElementById("uv-circle");
+
+function uvCategory(val){
+  if(val<3) return "Low";
+  if(val<6) return "Moderate";
+  if(val<8) return "High";
+  if(val<11) return "Very High";
+  return "Extreme";
+}
+function animateUVCircle(val){
+  const deg = Math.min(360, val/11*360);
+  uvCircle.style.background =
+    `conic-gradient(#4facfe 0deg ${deg}deg,#ddd ${deg}deg 360deg)`;
+}
+
+function renderDayButtons(daysUnique){
+  const cont=document.getElementById("day-buttons");
+  cont.innerHTML="";
+  daysUnique.forEach((d,i)=>{
+    const date=new Date(d);
+    const btn=document.createElement("button");
+    btn.textContent=date.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
+    if(i===0) btn.classList.add("active");
+    btn.onclick=()=>{
+      document.querySelectorAll(".day-buttons button").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      currentDayIndex=i;
+      renderHourlyBarsForDay(i);
+      updateCurrentUV(i);
+    };
+    cont.appendChild(btn);
+  });
+}
+
+function renderHourlyBarsForDay(dayIndex){
+  const cont=document.getElementById("hourly-bars");
+  const lbl=document.getElementById("hour-labels");
+  cont.innerHTML=""; lbl.innerHTML="";
+
+  const daysUnique=[...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDay=daysUnique[dayIndex];
+
+  const sunrise=new Date(sunriseData[dayIndex]);
+  const sunset=new Date(sunsetData[dayIndex]);
+
+  timesData.forEach((t,i)=>{
+    if(t.slice(0,10)===selectedDay){
+      const dt=new Date(t+'Z');
+      if(dt>=sunrise && dt<=sunset){
+        const bar=document.createElement("div");
+        bar.className="hour-bar";
+        bar.style.height=(uvData[i]*18)+"px";
+        bar.title=`${dt.getUTCHours()}:00 → ${uvData[i]}`;
+        cont.appendChild(bar);
+      }
+    }
+  });
+
+  timesData.forEach((t,i)=>{
+    if(t.slice(0,10)===selectedDay){
+      const dt=new Date(t+'Z');
+      if(dt.getUTCHours()%2===0){
+        const sp=document.createElement("div");
+        sp.textContent=dt.getUTCHours();
+        lbl.appendChild(sp);
+      }
+    }
+  });
+
+  const sunriseIcon=document.createElement("div");
+  sunriseIcon.className="sunrise";
+  sunriseIcon.textContent="🌅";
+  const sunsetIcon=document.createElement("div");
+  sunsetIcon.className="sunset";
+  sunsetIcon.textContent="🌇";
+  const sunline=document.createElement("div");
+  sunline.className="sunline";
+  cont.style.position="relative";
+  cont.appendChild(sunriseIcon);
+  cont.appendChild(sunsetIcon);
+  cont.appendChild(sunline);
+}
+
+function updateCurrentUV(dayIndex){
+  if(!uvData||!timesData) return;
+  const daysUnique=[...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDayStr=daysUnique[dayIndex];
+  const now=new Date();
+  let targetHour=now.getUTCHours();
+  let selectedIdx=null;
+
+  const titleEl=document.querySelector(".small");
+
+  if(selectedDayStr===now.toISOString().slice(0,10)){
+    // Today → Current UV Index (closest hour)
+    let closestIdx=0, minDiff=Infinity;
+    timesData.forEach((t,idx)=>{
+      if(t.slice(0,10)===selectedDayStr){
+        const dt=new Date(t+'Z');
+        const diff=Math.abs(dt-now);
+        if(diff<minDiff){ minDiff=diff; closestIdx=idx; }
+      }
+    });
+    selectedIdx=closestIdx;
+    titleEl.textContent="Current UV Index";
+  } else {
+    // Future days → Predicted UV Index (same hour)
+    timesData.forEach((t,idx)=>{
+      if(t.slice(0,10)===selectedDayStr){
+        const dt=new Date(t+'Z');
+        if(dt.getUTCHours()===targetHour && selectedIdx===null){
+          selectedIdx=idx;
+        }
+      }
+    });
+    titleEl.textContent="Predicted UV Index";
+  }
+
+  if(selectedIdx!==null){
+    const uvVal=uvData[selectedIdx];
+    uvEl.textContent=uvVal.toFixed(1);
+    descEl.textContent=uvCategory(uvVal)+` • Hour (UTC): ${timesData[selectedIdx].slice(11)}`;
+    animateUVCircle(uvVal);
+  } else {
+    uvEl.textContent="--";
+    descEl.textContent="No data for this hour";
+  }
+}
+
+async function fetchUV(lat,lon){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&daily=sunrise,sunset&forecast_days=5&timezone=UTC`;
+  const res=await fetch(url);
+  const data=await res.json();
+  uvData=data.hourly.uv_index;
+  timesData=data.hourly.time;
+  sunriseData=data.daily.sunrise;
+  sunsetData=data.daily.sunset;
+  const daysUnique=[...new Set(timesData.map(t=>t.slice(0,10)))];
+  renderDayButtons(daysUnique);
+  renderHourlyBarsForDay(0);
+  updateCurrentUV(0);
+}
+
+document.getElementById("geo").onclick=()=>{
+  navigator.geolocation.getCurrentPosition(pos=>{
+    fetchUV(pos.coords.latitude,pos.coords.longitude);
+  },()=>alert("Geolocation permission denied."));
+};
+document.getElementById("check").onclick=()=>{
+  const manual=document.getElementById("manual").value;
+  if(!manual) return alert("Enter coordinates or use location.");
+  const [lat,lon]=manual.split(",").map(Number);
+  if(isNaN(lat)||isNaN(lon)) return alert("Invalid coordinates");
+  fetchUV(lat,lon);
+};
+
+// Default: Istanbul
+manual.value="41.00824,28.97836";
+fetchUV(41.00824,28.97836);
+</script>
+</body>
+</html>
