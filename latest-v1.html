@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UV Index - Hourly Bar & Animated with Sunline</title>
+<title>UV Index - Hourly Bar & Animated</title>
 <style>
 body {
   font-family: system-ui,-apple-system,Segoe UI,Roboto;
@@ -41,7 +41,7 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   display:flex;
   justify-content:space-between;
   align-items:flex-end;
-  margin-top:60px; /* biraz aşağı kaydırıldı */
+  margin-top:20px;
   height:120px;
   position:relative;
 }
@@ -106,26 +106,21 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   text-align:center;
   max-width:60px;
 }
+
+/* UV colors */
 .uv-low { background:#a8e05f; color:black; }
 .uv-moderate { background:#fdd835; color:black; }
 .uv-high { background:#f97306; }
 .uv-veryhigh { background:#ef4444; }
 .uv-extreme { background:#9b30ff; }
 
-/* Sunrise / Sunset line */
-.sunline-container {
-  position:absolute;
-  top:-50px; /* bar container üstünde */
-  left:0;
-  width:100%;
-  height:40px;
-}
-.sunline-container svg { width:100%; height:100%; }
-.sun-icon {
-  position:absolute;
-  font-size:18px;
-  top:-4px;
-  transform:translateX(-50%);
+/* Location access message */
+#location-msg {
+  font-size:14px; 
+  font-weight:500; 
+  color:#555; 
+  text-align:center; 
+  margin-top:10px;
 }
 </style>
 </head>
@@ -159,20 +154,12 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
     <button class="btn" id="check">Fetch UV</button>
   </div>
 </div>
-<div style="font-size:12px; color:#555; margin-top:6px; text-align:center;">
+<div id="location-msg">
   For accurate UV Index data, please allow location access in your browser.
 </div>
   
-<h3 style="text-align:center; margin-top:30px;">Hourly UV Index (UTC)</h3>
-<div class="hourly-bar-container" id="hourly-bars">
-  <div class="sunline-container">
-    <svg>
-      <path d="M10,30 A180,20 0 0,1 370,30" stroke="#f9a825" stroke-width="3" fill="none"/>
-    </svg>
-    <div class="sun-icon" id="sunrise">🌅</div>
-    <div class="sun-icon" id="sunset">🌇</div>
-  </div>
-</div>
+<h3 style="text-align:center">Hourly UV Index (UTC)</h3>
+<div class="hourly-bar-container" id="hourly-bars"></div>
 <div class="hour-labels" id="hour-labels"></div>
 
 <h3 style="text-align:center; margin-top:30px">UV Index Reference</h3>
@@ -207,8 +194,6 @@ const manual = document.getElementById('manual');
 const fgCircle = document.querySelector('.fg');
 const hourlyBars = document.getElementById('hourly-bars');
 const hourLabels = document.getElementById('hour-labels');
-const sunriseIcon = document.getElementById('sunrise');
-const sunsetIcon = document.getElementById('sunset');
 
 function uvCategory(val){
   if(val===null||val===undefined) return 'Unknown';
@@ -232,7 +217,7 @@ async function fetchUV(lat, lon){
   coordsEl.textContent=`${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 
   try{
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index,sunrise,sunset&timezone=UTC`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=UTC`);
     if(!res.ok) throw new Error('API error: '+res.status);
     const data = await res.json();
 
@@ -253,7 +238,7 @@ async function fetchUV(lat, lon){
     descEl.textContent=uvCategory(uvVal)+(uvVal!==null ? ` • Hour (UTC): ${times[i].slice(11)}`:'');
 
     animateUVCircle(uvVal);
-    renderHourlyBars(times, uvs, data.hourly.sunrise, data.hourly.sunset);
+    renderHourlyBars(times, uvs);
 
   }catch(err){
     uvEl.textContent='Error';
@@ -269,33 +254,12 @@ function animateUVCircle(uvVal){
   fgCircle.style.stroke=uvColor(uvVal);
 }
 
-function renderHourlyBars(times, uvs, sunriseArr, sunsetArr){
+function renderHourlyBars(times, uvs){
   hourlyBars.innerHTML='';
   hourLabels.innerHTML='';
-
-  // calculate today's sunrise/sunset
-  const now = new Date();
-  const today = now.toISOString().slice(0,10);
-  let sunriseHour = 6; // fallback
-  let sunsetHour = 18; // fallback
-  if(sunriseArr && sunsetArr){
-    for(let s of sunriseArr){
-      if(s.startsWith(today)) { sunriseHour = new Date(s+'Z').getUTCHours(); break; }
-    }
-    for(let s of sunsetArr){
-      if(s.startsWith(today)) { sunsetHour = new Date(s+'Z').getUTCHours(); break; }
-    }
-  }
-
-  // position sunrise/sunset icons
-  sunriseIcon.style.left = (sunriseHour/23*100) + '%';
-  sunsetIcon.style.left = (sunsetHour/23*100) + '%';
-
   for(let j=0;j<24;j++){
     const t = times[j] ? new Date(times[j]+'Z') : null;
-    let uv = uvs[j] !== undefined ? uvs[j] : 0;
-    // UV is 0 before sunrise and after sunset
-    if(j<sunriseHour || j>sunsetHour) uv = 0;
+    const uv = uvs[j] !== undefined ? uvs[j] : 0;
     const color = uvColor(uv);
     const heightPercent = Math.min((uv/11)*100,100);
     const bar = document.createElement('div');
@@ -329,6 +293,7 @@ document.getElementById('check').onclick = () => {
   fetchUV(lat, lon);
 };
 
+// initial fetch
 manual.value='41.00824,28.97836';
 fetchUV(41.00824,28.97836);
 </script>
