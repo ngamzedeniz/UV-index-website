@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>UV Index - Hourly Bar & Animated 5-Day</title>
+<title>UV Index - Hourly Bar & 5-Day</title>
 <style>
 body {
   font-family: system-ui,-apple-system,Segoe UI,Roboto;
@@ -21,7 +21,7 @@ body {
   border-radius:12px;
   box-shadow:0 6px 24px rgba(0,0,0,0.08);
   width:380px;
-  margin-bottom:30px;
+  margin-bottom:20px;
 }
 
 .big { font-size:48px; font-weight:700; }
@@ -41,7 +41,7 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   display:flex;
   justify-content:space-between;
   align-items:flex-end;
-  margin-top:10px;
+  margin-top:20px;
   height:120px;
   position:relative;
 }
@@ -64,6 +64,7 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   margin-bottom:2px;
 }
 
+/* Saatleri her barın altına hizalama */
 .hour-labels {
   width:100%;
   display:flex;
@@ -76,6 +77,7 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   width:3%;
 }
 
+/* Modern UV scale circles */
 .uv-scale {
   display:flex;
   justify-content:space-between;
@@ -106,18 +108,17 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
   max-width:60px;
 }
 
+/* UV colors */
 .uv-low { background:#a8e05f; color:black; }
 .uv-moderate { background:#fdd835; color:black; }
 .uv-high { background:#f97306; }
 .uv-veryhigh { background:#ef4444; }
 .uv-extreme { background:#9b30ff; }
 
-.day-buttons { display:flex; gap:6px; margin:20px 0; flex-wrap:wrap; justify-content:center; }
-.day-buttons button { padding:6px 10px; border:0; border-radius:6px; background:#0b74de; color:white; cursor:pointer; }
-.day-buttons button.active { background:#064a9b; }
-
-.location-warning { font-size:14px; color:#555; margin-top:10px; text-align:center; }
-
+/* 5-day buttons */
+.daily-buttons { display:flex; justify-content:space-between; margin:10px 0; }
+.daily-buttons button { flex:1; margin:0 2px; padding:6px; border-radius:6px; border:none; cursor:pointer; background:#ddd; font-size:12px; }
+.daily-buttons button.active { background:#0b74de; color:white; }
 </style>
 </head>
 <body>
@@ -150,11 +151,11 @@ input { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margi
     <button class="btn" id="check">Fetch UV</button>
   </div>
 </div>
-<div class="location-warning">
+<div style="font-size:14px; color:#555; margin-top:6px; text-align:center;">
   For accurate UV Index data, please allow location access in your browser.
 </div>
 
-<div class="day-buttons" id="day-buttons"></div>
+<div class="daily-buttons" id="daily-buttons"></div>
 
 <h3 style="text-align:center; margin-top:10px;">Hourly UV Index (UTC)</h3>
 <div class="hourly-bar-container" id="hourly-bars"></div>
@@ -192,9 +193,10 @@ const manual = document.getElementById('manual');
 const fgCircle = document.querySelector('.fg');
 const hourlyBars = document.getElementById('hourly-bars');
 const hourLabels = document.getElementById('hour-labels');
-const dayButtonsDiv = document.getElementById('day-buttons');
+const dailyButtonsContainer = document.getElementById('daily-buttons');
 
-let forecastData = null;
+let uvData = null;
+let timesData = null;
 let selectedDayIndex = 0;
 
 function uvCategory(val){
@@ -222,12 +224,13 @@ async function fetchUV(lat, lon){
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=UTC`);
     if(!res.ok) throw new Error('API error: '+res.status);
     const data = await res.json();
-    forecastData = data;
 
-    renderDayButtons();
-    renderHourlyBarsForDay(0);
+    timesData = data.hourly.time || [];
+    uvData = data.hourly.uv_index || [];
 
-    updateCurrentUV();
+    renderDailyButtons(timesData);
+    renderHourlyBarsForDay(selectedDayIndex);
+    updateCurrentUV(selectedDayIndex);
 
   }catch(err){
     uvEl.textContent='Error';
@@ -235,24 +238,84 @@ async function fetchUV(lat, lon){
   }
 }
 
-function updateCurrentUV(){
-  if(!forecastData) return;
-  const now = new Date();
-  const times = forecastData.hourly.time;
-  const uvs = forecastData.hourly.uv_index;
-
-  // en yakın saate göre
-  let best=0,mindiff=Infinity;
-  for(let j=0;j<times.length;j++){
-    const t=new Date(times[j]+'Z');
-    const diff=Math.abs(t-now);
-    if(diff<mindiff){ mindiff=diff; best=j; }
+function renderDailyButtons(times){
+  dailyButtonsContainer.innerHTML = '';
+  let days = [];
+  for(let t of times){
+    const d = t.slice(0,10);
+    if(!days.includes(d)) days.push(d);
+    if(days.length >=5) break;
   }
 
-  const uvVal = uvs[best];
-  uvEl.textContent = uvVal.toFixed(1);
-  descEl.textContent = uvCategory(uvVal)+` • Hour (UTC): ${times[best].slice(11)}`;
+  days.forEach((d,i)=>{
+    const dt = new Date(d);
+    const options = {weekday:'short', day:'numeric', month:'short'};
+    const label = dt.toLocaleDateString('en-US',options);
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    if(i===selectedDayIndex) btn.classList.add('active');
+    btn.onclick = ()=>{
+      selectedDayIndex=i;
+      document.querySelectorAll('.daily-buttons button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderHourlyBarsForDay(i);
+      updateCurrentUV(i);
+    };
+    dailyButtonsContainer.appendChild(btn);
+  });
+}
 
+function renderHourlyBarsForDay(dayIndex){
+  hourlyBars.innerHTML='';
+  hourLabels.innerHTML='';
+  if(!uvData || !timesData) return;
+
+  const dayStr = timesData.filter((t,idx)=>idx===0 || t.slice(0,10)===timesData[idx].slice(0,10))[0].slice(0,10);
+  const daysUnique = [...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDayStr = daysUnique[dayIndex];
+
+  const dayTimes = timesData.map((t,idx)=>({t: new Date(t+'Z'), uv: uvData[idx]}))
+    .filter(x => x.t.toISOString().slice(0,10) === selectedDayStr);
+
+  for(let j=0;j<dayTimes.length;j++){
+    const tObj = dayTimes[j];
+    const uv = tObj.uv;
+    const color = uvColor(uv);
+    const heightPercent = Math.min((uv/11)*100,100);
+    const bar = document.createElement('div');
+    bar.className='hourly-bar';
+    bar.style.height='100%';
+    bar.innerHTML=`<span>${uv}</span><div style="background:${color}; height:${heightPercent}%; width:100%; border-radius:4px 4px 0 0"></div>`;
+    hourlyBars.appendChild(bar);
+
+    const label = document.createElement('div');
+    label.textContent = tObj.t.getUTCHours();
+    hourLabels.appendChild(label);
+  }
+}
+
+function updateCurrentUV(dayIndex){
+  if(!uvData || !timesData) return;
+  const daysUnique = [...new Set(timesData.map(t=>t.slice(0,10)))];
+  const selectedDayStr = daysUnique[dayIndex];
+  const now = new Date();
+
+  let closestIdx = 0;
+  let minDiff = Infinity;
+  timesData.forEach((t,idx)=>{
+    if(t.slice(0,10)===selectedDayStr){
+      const dt = new Date(t+'Z');
+      const diff = Math.abs(dt - now);
+      if(diff<minDiff){
+        minDiff=diff;
+        closestIdx=idx;
+      }
+    }
+  });
+
+  const uvVal = uvData[closestIdx];
+  uvEl.textContent = uvVal.toFixed(1);
+  descEl.textContent = uvCategory(uvVal) + ` • Hour (UTC): ${timesData[closestIdx].slice(11)}`;
   animateUVCircle(uvVal);
 }
 
@@ -262,50 +325,6 @@ function animateUVCircle(uvVal){
   const dashOffset = 339.292*(1-percent);
   fgCircle.style.strokeDashoffset=dashOffset;
   fgCircle.style.stroke=uvColor(uvVal);
-}
-
-function renderDayButtons(){
-  const times = forecastData.hourly.time.map(t=>t.slice(0,10));
-  const uniqueDays = [...new Set(times)];
-  dayButtonsDiv.innerHTML='';
-  uniqueDays.forEach((day, idx)=>{
-    const btn = document.createElement('button');
-    btn.textContent = day;
-    if(idx===0) btn.classList.add('active');
-    btn.onclick = () => {
-      selectedDayIndex = idx;
-      Array.from(dayButtonsDiv.children).forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      renderHourlyBarsForDay(idx);
-    };
-    dayButtonsDiv.appendChild(btn);
-  });
-}
-
-function renderHourlyBarsForDay(dayIdx){
-  hourlyBars.innerHTML='';
-  hourLabels.innerHTML='';
-  const times = forecastData.hourly.time.map(t=>new Date(t+'Z'));
-  const uvs = forecastData.hourly.uv_index;
-
-  // seçilen günün saatleri
-  const dayTimes = times.filter((t,i)=>i<times.length && t.toISOString().slice(0,10) === times[0].toISOString().slice(0,10));
-  for(let j=0;j<24;j++){
-    const t = times[j] || new Date();
-    const uv = uvs[j] || 0;
-    const color = uvColor(uv);
-    const heightPercent = Math.min((uv/11)*100,100);
-    const bar = document.createElement('div');
-    bar.className='hourly-bar';
-    bar.style.height='100%';
-    bar.innerHTML=`<span>${uv}</span><div style="background:${color}; height:${heightPercent}%; width:100%; border-radius:4px 4px 0 0"></div>`;
-    hourlyBars.appendChild(bar);
-
-    const hourText = t.getUTCHours();
-    const label = document.createElement('div');
-    label.textContent=hourText;
-    hourLabels.appendChild(label);
-  }
 }
 
 document.getElementById('geo').onclick = () => {
