@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UV İndeksi</title>
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    margin:0;
+    padding:0;
+    background:#fefaf5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .header {
+    width:100%;
+    background:linear-gradient(to bottom, #ffe6b3, #fff2e6);
+    padding:20px;
+    text-align:center;
+    position:relative;
+  }
+  .header h1 { margin:0; font-size:24px; }
+  .uv-value {
+    font-size:36px;
+    font-weight:bold;
+    margin:10px 0;
+  }
+  .uv-desc { font-size:16px; color:#555; }
+  .uv-character {
+    width:80px;
+    height:80px;
+    border-radius:50%;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    font-weight:bold;
+    color:white;
+    margin:20px auto 10px;
+    position:relative;
+  }
+  .uv-character span {
+    position:absolute;
+    bottom:-25px;
+    font-size:14px;
+    color:#333;
+  }
+
+  /* Colors */
+  .low { background:#4caf50; }      /* 0-2 */
+  .moderate { background:#ffeb3b; color:#333; }  /* 3-5 */
+  .high { background:#ff9800; }     /* 6-7 */
+  .veryhigh { background:#f44336; } /* 8-10 */
+  .extreme { background:#9c27b0; }  /* 11+ */
+
+  /* Hourly UV bars */
+  .uv-hours {
+    display:flex;
+    justify-content:center;
+    gap:5px;
+    margin:20px;
+  }
+  .uv-bar {
+    width:30px;
+    background:#ddd;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    font-size:14px;
+    color:#000;
+    border-radius:4px 4px 0 0;
+    transition:0.3s;
+    position:relative;
+  }
+  .uv-bar span {
+    position:absolute;
+    top:-20px;
+    font-size:12px;
+  }
+  .uv-time {
+    text-align:center;
+    font-size:12px;
+    margin-top:4px;
+  }
+
+  .legend {
+    display:flex;
+    justify-content:center;
+    gap:15px;
+    margin-bottom:40px;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>UV İndeksi</h1>
+  <div class="uv-value" id="current-uv">6</div>
+  <div class="uv-desc">Dışarısı yanıyor. Koruyucu krem kullanın, geniş siperlikli şapka ve güneş gözlüğü takın.</div>
+</div>
+
+<!-- Hourly UV Bars -->
+<div class="uv-hours" id="uv-hours">
+  <div class="uv-bar high" style="height:60px;"><span>6</span><div class="uv-time">11:00</div></div>
+  <div class="uv-bar high" style="height:70px;"><span>7</span><div class="uv-time">12:00</div></div>
+  <div class="uv-bar high" style="height:60px;"><span>6</span><div class="uv-time">13:00</div></div>
+  <div class="uv-bar moderate" style="height:50px;"><span>5</span><div class="uv-time">14:00</div></div>
+  <div class="uv-bar moderate" style="height:30px;"><span>3</span><div class="uv-time">15:00</div></div>
+</div>
+
+<!-- UV Characters / Legend -->
+<div class="legend">
+  <div class="uv-character low">0-2<span>Düşük</span></div>
+  <div class="uv-character moderate">3-5<span>Orta</span></div>
+  <div class="uv-character high">6-7<span>Yüksek</span></div>
+  <div class="uv-character veryhigh">8-10<span>Çok yüksek</span></div>
+  <div class="uv-character extreme">11+<span>Aşırı</span></div>
+</div>
+
+</body>
+</html>
