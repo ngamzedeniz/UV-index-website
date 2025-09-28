@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UV Index - Combined</title>
+  <style>
+    body {
+      font-family: system-ui,-apple-system,Segoe UI,Roboto;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      min-height:100vh;
+      background:#f6f8fa;
+      margin:0;
+      padding:20px;
+    }
+    .card {
+      background:white;
+      padding:20px;
+      border-radius:12px;
+      box-shadow:0 6px 24px rgba(0,0,0,0.08);
+      width:360px;
+      margin-bottom:30px;
+    }
+    .big { font-size:48px; font-weight:700 }
+    .small { color:#666 }
+    .btn {
+      margin-top:12px;
+      padding:8px 12px;
+      border-radius:8px;
+      border:0;
+      background:#0b74de;
+      color:white;
+      cursor:pointer;
+    }
+    input {
+      width:100%;
+      padding:8px;
+      border-radius:8px;
+      border:1px solid #ddd;
+      margin-top:8px;
+    }
+    #uv-table tbody tr:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    #uv-table tbody tr.highlight {
+      outline: 3px solid black;
+      font-weight: bold;
+      transition:0.3s;
+    }
+
+    /* UV Visual Cards */
+    .uv-cards {
+      display:flex;
+      gap:15px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-bottom:30px;
+    }
+    .uv-card {
+      width:80px;
+      height:80px;
+      border-radius:50%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      color:white;
+      font-weight:bold;
+      position:relative;
+      text-align:center;
+      font-size:16px;
+    }
+    .uv-card span {
+      font-size:12px;
+      position:absolute;
+      bottom:-25px;
+      color:#333;
+    }
+    .uv-low { background:#a8e05f; }
+    .uv-moderate { background:#fdd835; }
+    .uv-high { background:#f97306; }
+    .uv-veryhigh { background:#ef4444; }
+    .uv-extreme { background:#9b30ff; }
+  </style>
+</head>
+<body>
+
+  <!-- UV Data Card -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="small">UV Index</div>
+        <div id="uv" class="big">--</div>
+        <div id="desc" class="small">Waiting for data</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small">Location:</div>
+        <div id="coords" class="small">—</div>
+      </div>
+    </div>
+
+    <hr style="margin:14px 0">
+
+    <div class="small">Enter coordinates / city manually (lat,lon) or allow location:</div>
+    <input id="manual" placeholder="e.g., 39.92,32.85 or leave empty and click 'Get Location'" />
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" id="geo">Get Location</button>
+      <button class="btn" id="check">Fetch</button>
+    </div>
+
+    <div id="note" class="small" style="margin-top:10px;color:#444">
+      Data comes from Open-Meteo (free, no API key). Click "Fetch" again to update.
+    </div>
+  </div>
+
+  <!-- UV Index Table -->
+  <hr style="margin:20px 0">
+  <h3 style="text-align:center">UV Index Categories</h3>
+  <table id="uv-table" style="width:100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align:center; margin-bottom:30px;">
+    <thead>
+      <tr style="background:#0b74de; color:white;">
+        <th style="padding:10px;">UV Index</th>
+        <th style="padding:10px;">Category</th>
+        <th style="padding:10px;">Color</th>
+        <th style="padding:10px;">Protection Advice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-min="0" data-max="2" style="background:#a8e05f; transition:0.3s;">
+        <td>0-2</td>
+        <td>Low</td>
+        <td>Green</td>
+        <td>Normal protection is sufficient</td>
+      </tr>
+      <tr data-min="3" data-max="5" style="background:#fdd835; transition:0.3s;">
+        <td>3-5</td>
+        <td>Moderate</td>
+        <td>Yellow</td>
+        <td>Wear sunglasses and a hat</td>
+      </tr>
+      <tr data-min="6" data-max="7" style="background:#f97306; transition:0.3s;">
+        <td>6-7</td>
+        <td>High</td>
+        <td>Orange</td>
+        <td>Avoid sun, use sunscreen</td>
+      </tr>
+      <tr data-min="8" data-max="10" style="background:#ef4444; transition:0.3s;">
+        <td>8-10</td>
+        <td>Very High</td>
+        <td>Red</td>
+        <td>Minimize time outdoors, wear protective clothing</td>
+      </tr>
+      <tr data-min="11" data-max="99" style="background:#9b30ff; color:white; transition:0.3s;">
+        <td>11+</td>
+        <td>Extreme</td>
+        <td>Purple</td>
+        <td>Stay in the shade if possible, maximum protection</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- UV Visual Cards -->
+  <h3 style="text-align:center; margin-bottom:10px;">UV Index Visual</h3>
+  <div class="uv-cards">
+    <div class="uv-card uv-low">0-2<span>Low</span></div>
+    <div class="uv-card uv-moderate">3-5<span>Moderate</span></div>
+    <div class="uv-card uv-high">6-7<span>High</span></div>
+    <div class="uv-card uv-veryhigh">8-10<span>Very High</span></div>
+    <div class="uv-card uv-extreme">11+<span>Extreme</span></div>
+  </div>
+
+  <script>
+    const uvEl = document.getElementById('uv');
+    const descEl = document.getElementById('desc');
+    const coordsEl = document.getElementById('coords');
+    const manual = document.getElementById('manual');
+
+    function uvCategory(val){
+      if (val === null || val === undefined) return 'Unknown';
+      if (val < 3) return 'Low';
+      if (val < 6) return 'Moderate';
+      if (val < 8) return 'High';
+      if (val < 11) return 'Very High';
+      return 'Extreme';
+    }
+
+    async function fetchUV(lat, lon){
+      uvEl.textContent = '...';
+      descEl.textContent = 'Fetching data';
+      coordsEl.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+      try{
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index,uv_index_clear_sky&timezone=UTC`);
+        if(!res.ok) throw new Error('API error: '+res.status);
+        const data = await res.json();
+
+        const now = new Date();
+        const y = now.getUTCFullYear();
+        const m = String(now.getUTCMonth()+1).padStart(2,'0');
+        const d = String(now.getUTCDate()).padStart(2,'0');
+        const h = String(now.getUTCHours()).padStart(2,'0');
+        const target = `${y}-${m}-${d}T${h}:00`;
+
+        const times = data.hourly.time || [];
+        const uvs = data.hourly.uv_index || [];
+        let i = times.indexOf(target);
+        if(i===-1){
+          let best=0, mindiff=Infinity;
+          for(let j=0;j<times.length;j++){
+            const t=new Date(times[j]+'Z');
+            const diff=Math.abs(t-now);
+            if(diff<mindiff){ mindiff=diff; best=j; }
+          }
+          i=best;
+        }
+
+        const uvVal = (uvs[i]===undefined)? null: uvs[i];
+        uvEl.textContent = (uvVal===null)? '—' : uvVal.toFixed(1);
+        descEl.textContent = uvCategory(uvVal) + (uvVal!==null ? ` • Hour (UTC): ${times[i].slice(11)}` : '');
+
+        if(uvVal!==null) highlightUVRow(uvVal);
+
+      }catch(err){
+        uvEl.textContent = 'Error';
+        descEl.textContent = err.message;
+      }
+    }
+
+    document.getElementById('geo').onclick = () => {
+      if(!navigator.geolocation) return alert('Browser does not support geolocation API');
+      navigator.geolocation.getCurrentPosition(p=>{
+        manual.value = p.coords.latitude.toFixed(5)+','+p.coords.longitude.toFixed(5);
+        fetchUV(p.coords.latitude,p.coords.longitude);
+      }, e => alert('Could not get location: '+e.message));
+    };
+
+    document.getElementById('check').onclick = () => {
+      const text = manual.value.trim();
+      if(!text) return alert('Please enter lat,lon or use Get Location.');
+      const parts = text.split(',').map(s=>s.trim());
+      if(parts.length<2) return alert('Format: lat,lon (e.g., 39.92,32.85)');
+      const lat=parseFloat(parts[0]), lon=parseFloat(parts[1]);
+      if(isNaN(lat) || isNaN(lon)) return alert('Invalid coordinates');
+      fetchUV(lat, lon);
+    };
+
+    function highlightUVRow(uvVal){
+      const rows=document.querySelectorAll('#uv-table tbody tr');
+      rows.forEach(row=>row.classList.remove('highlight'));
+      rows.forEach(row=>{
+        const min=parseFloat(row.dataset.min);
+        const max=parseFloat(row.dataset.max);
+        if(uvVal>=min && uvVal<=max) row.classList.add('highlight');
+      });
+    }
+
+    // default: Istanbul
+    manual.value = '41.00824,28.97836';
+    fetchUV(41.00824,28.97836);
+
+  </script>
+</body>
+</html>
